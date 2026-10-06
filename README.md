@@ -1,72 +1,79 @@
 # Distributed EV Charging Platform
 
-A Docker Compose simulation of a small electric-vehicle charging network. Python services register a charging point, coordinate charging requests, publish telemetry through Kafka, store state in PostgreSQL, process weather updates, and expose a local web dashboard.
+A local simulation of an electric vehicle charging network, based on the final `sd_pract2` implementation. It began as a two-person Distributed Systems project at the University of Alicante. Vicente led and implemented most of the system.
 
-This began as a University of Alicante distributed-systems project. The project was originally developed in October–November 2025, but it has recently been updated to address security vulnerabilities and released for professional use, ensuring it is easy for all users to understand.
+Python services register a charging point, coordinate driver requests, send encrypted telemetry through Kafka, store records in PostgreSQL, update weather conditions, and provide a web dashboard.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    D[Driver simulator] -->|charge request| C[Central service]
-    CP[Charging point] -->|register| R[Registry]
+    D[Driver simulator] -->|authorization request| C[Central service]
+    CP[Charging point] -->|registration| R[Registry]
     R --> PG[(PostgreSQL)]
-    CP -->|login / callback| C
-    CP -->|telemetry| K[(Kafka)]
-    K -->|events| C
+    CP -->|login and callback URL| C
+    C -->|authorize, start, stop| CP
+    CP -->|encrypted telemetry| K[(Kafka)]
+    K -->|telemetry| C
     C --> PG
-    W[Weather service] -->|temperature / alerts| C
-    OW[OpenWeather API optional] --> W
-    F[Web dashboard] -->|status / control| C
+    W[Weather service] -->|temperature and alerts| C
+    O[OpenWeather API, optional] --> W
+    F[Web dashboard] -->|status and controls| C
+    Z[ZooKeeper] --> K
 ```
 
-**Components:** `ev_registry` issues charging-point registration tokens and stores station records; `ev_central` handles sessions, requests, tickets, audit records and telemetry consumption; `ev_cp` simulates one charging point; `ev_driver` generates charge requests; `ev_weather` reports temperatures; `ev_front` serves the dashboard. Kafka and ZooKeeper transport telemetry, and PostgreSQL stores persistent state.
+- **Registry (`ev_registry`)** registers charging points, issues tokens, and stores their records.
+- **Central service (`ev_central`)** manages charging point sessions, driver authorization, dashboard controls, tickets, audit logs, weather alerts, and Kafka telemetry.
+- **Charging point (`ev_cp`)** registers as `MADRID-01` by default, receives central service callbacks, simulates charging, and publishes encrypted telemetry.
+- **Driver (`ev_driver`)** makes simulated authorization requests.
+- **Weather (`ev_weather`)** polls active locations and sends temperatures and low temperature alerts. It uses simulated values when no OpenWeather key is set.
+- **Dashboard (`ev_front`)** shows charging point status, weather, tickets, and controls through the central service.
+
+PostgreSQL stores charging points, tickets, and audit logs. Kafka carries charging telemetry; ZooKeeper supports the Kafka broker. The central service also keeps active sessions and current weather in memory.
 
 ## Run locally
 
-Install Docker with the Compose plugin. From the repository root:
+You need Docker and the Compose plugin. From the repository root:
 
 ```bash
 cp .env.example .env
-# Edit .env and set a unique local DB_PASSWORD.
+# Set a unique local DB_PASSWORD in .env
 docker compose up --build
 ```
 
-On Windows PowerShell, use `Copy-Item .env.example .env` for the first command. Open [http://localhost:5000](http://localhost:5000) after the services have started. The driver simulator runs automatically and may need a short time for the charging point to register. You can also issue a manual request:
+On Windows PowerShell, copy the example with `Copy-Item .env.example .env`. Open [http://localhost:5000](http://localhost:5000) after startup. The Compose file starts one charging point (`MADRID-01`) and a driver simulator automatically. Allow time for the database, Kafka, registration, and login to become ready; the charging point retries registration and login. Driver requests authorize a connection; starting and stopping a charge are separate dashboard actions.
+
+For one manual driver request, use:
 
 ```bash
 docker compose run --rm ev_driver python app.py --user Alice --cp MADRID-01
 ```
 
-Stop the stack with `docker compose down`. To start with a fresh database, run `docker compose down -v` only if you intend to discard local simulation data.
+That command waits for Ctrl+C after a successful request and then asks the central service to disconnect. To stop the stack, run `docker compose down`. To reset its database, run `docker compose down -v`, which discards local simulation data.
 
-The Compose stack binds the dashboard, central API, registry, Kafka and PostgreSQL ports to `127.0.0.1`. No private LAN address is needed. The default demo starts one charging point (`MADRID-01`) and a driver simulator. It is a local educational simulation, not a production service.
+The dashboard, central API, registry, Kafka, and PostgreSQL are bound to `127.0.0.1` on the host. No private LAN address is needed for this Compose workflow.
 
 ## Configuration
 
-Copy `.env.example` to `.env`; `.env` is ignored by Git. `DB_PASSWORD` is required for the local PostgreSQL database. `OPENWEATHER_API_KEY` is optional: without it, the weather service generates simulated temperatures for a self-contained demo. Set a new provider key only in your local `.env` if you want live weather. Do not reuse any key that appeared in the earlier public repository. Charging-point tokens are generated at registration and local `token_*.json` files are ignored by Git.
+`.env.example` contains placeholders only. Set `DB_PASSWORD` in your ignored local `.env`. `OPENWEATHER_API_KEY` is optional; leave it empty to generate simulated temperatures. With a key, failed provider requests do not generate substitute readings. Do not reuse a key that has previously been exposed.
 
-The services read Docker service names (`db`, `kafka`, `ev_central`, `ev_registry`) on the Compose network. Port constants and database settings are in `ev_common/config.py`. `docker compose config --quiet` checks the configuration before starting the stack.
+Charging point tokens are generated during registration. Local `token_*.json` files, `.env`, local databases, Python caches, and virtual environments are ignored by Git. The container demo does not preserve its generated token across a fresh charging point container; resetting only the container while retaining the database may require a database reset or re-registration.
 
-## Project layout
+Run `docker compose config --quiet` after setting `DB_PASSWORD` to validate the Compose configuration.
 
-| Path | Purpose |
+## Repository structure
+
+| Path | Role |
 | --- | --- |
 | `docker-compose.yml` | Local service topology |
 | `db/init.sql` | PostgreSQL schema |
 | `ev_common/` | Shared configuration |
 | `ev_registry/`, `ev_central/` | Registration and coordination APIs |
-| `ev_cp/`, `ev_driver/` | Charging-point and driver simulators |
-| `ev_weather/` | Weather polling and alert simulation |
-| `ev_front/` | Flask dashboard and template |
-| `tests/` | Focused checks |
+| `ev_cp/`, `ev_driver/` | Charging point and driver simulators |
+| `ev_weather/` | Weather polling and alerts |
+| `ev_front/` | Flask dashboard |
+| `tests/` | Focused weather behavior tests |
 
-## Design and limits
+## Scope and limitations
 
-The services communicate through HTTP for commands and Kafka for telemetry. The registry and central service share PostgreSQL for station and ticket state. The weather integration has a simulated mode so the project can be explored without an external account. The web dashboard is an inspection and control surface for the local demo.
-
-This code is intended for learning and demonstration. It has one default charging point, simple startup ordering, and limited recovery from service failures. The local HTTP APIs and database setup are not hardened for internet exposure. Weather values are simulated when no API key is configured. No performance or scale claim is implied by the architecture.
-
-## Licensing
-
-MIT
+This is a local educational simulation with one charging point in the default Compose setup. Startup depends on several services becoming ready, and the Kafka consumer has limited recovery if the broker is unavailable at its initial connection. Active sessions and weather state are held in memory. The HTTP APIs and local database configuration are intended for development and should not be exposed to the internet.
