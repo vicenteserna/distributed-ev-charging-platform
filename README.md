@@ -1,6 +1,6 @@
 # Distributed EV Charging Platform
 
-A local simulation of an electric vehicle charging network, based on the final `sd_pract2` implementation. It began as a two-person Distributed Systems project at the University of Alicante. Vicente led and implemented most of the system.
+A local simulation of an electric vehicle charging network, based on the final `sd_pract2` implementation. It began as a Distributed Systems project at the University of Alicante. 
 
 Python services register a charging point, coordinate driver requests, send encrypted telemetry through Kafka, store records in PostgreSQL, update weather conditions, and provide a web dashboard.
 
