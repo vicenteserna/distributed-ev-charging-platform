@@ -69,4 +69,4 @@ This code is intended for learning and demonstration. It has one default chargin
 
 ## Licensing
 
-No open-source license has been added because the original project has two authors and the applicable redistribution terms have not been confirmed. The source is visible for portfolio review; contact the authors before reusing it.
+MIT
