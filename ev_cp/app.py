@@ -59,7 +59,7 @@ def get_local_ip():
         return '127.0.0.1'
 
 # For callback, if local, use localhost
-CALLBACK_URL = f"http://{hostname}:{PORT}"
+CALLBACK_URL = f"http://{os.getenv('CP_CALLBACK_HOST', hostname)}:{PORT}"
 if os.getenv('DB_HOST') is None:
     # We are running locally (not in docker), but Central is likely in Docker (or remote)
     # We need to send an IP that Central can reach.
