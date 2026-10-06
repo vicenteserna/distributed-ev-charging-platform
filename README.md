@@ -53,6 +53,41 @@ That command waits for Ctrl+C after a successful request and then asks the centr
 
 The dashboard, central API, registry, Kafka, and PostgreSQL are bound to `127.0.0.1` on the host. No private LAN address is needed for this Compose workflow.
 
+## Manual multi-point workflow
+
+The original `sd_pract2` workflow started charging points and drivers in separate terminals. The public Compose file starts one default point and an automatic driver for a quick demonstration. You can still run additional points and drivers manually while the base services are up.
+
+For a controlled demonstration, stop the automatic driver first:
+
+```bash
+docker compose stop ev_driver
+```
+
+In a new terminal, start a second point. Keep this terminal open:
+
+```bash
+docker compose run --rm --no-deps --name ev-cp-sevilla -e CP_CALLBACK_HOST=ev-cp-sevilla ev_cp python app.py --id SEVILLA-03 --city Sevilla --price 0.45
+```
+
+The container name and `CP_CALLBACK_HOST` must match so the central service sends commands to this point, rather than to the default `ev_cp`. Give every additional point a unique container name and `--id`. The point registers itself, stores its location, and logs in automatically. Its city then appears on the dashboard and in the weather service's location list.
+
+In another terminal, simulate a driver requesting that point:
+
+```bash
+docker compose run --rm --no-deps ev_driver python app.py --user Ana --cp SEVILLA-03
+```
+
+The request authorizes a connection. Use the dashboard at [http://localhost:5000](http://localhost:5000) to start and stop charging and inspect the ticket. The manual driver waits for Ctrl+C to disconnect.
+
+The weather service normally polls registered cities automatically. To force one temperature without it being overwritten by the next poll:
+
+```bash
+docker compose stop ev_weather
+docker compose run --rm --no-deps ev_weather python app.py --city Sevilla --temp 18
+```
+
+A temperature below 0 °C sends a low temperature alert and may stop charging. Run `docker compose start ev_weather` to resume automatic updates. These commands use Docker's internal network, so they do not require a private LAN address or host-side Python setup.
+
 ## Configuration
 
 `.env.example` contains placeholders only. Set `DB_PASSWORD` in your ignored local `.env`. `OPENWEATHER_API_KEY` is optional; leave it empty to generate simulated temperatures. With a key, failed provider requests do not generate substitute readings. Do not reuse a key that has previously been exposed.
