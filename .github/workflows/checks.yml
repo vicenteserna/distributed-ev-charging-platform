@@ -1,0 +1,14 @@
+name: Checks
+on: [push, pull_request]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r ev_weather/requirements.txt
+      - run: python -m compileall -q ev_common ev_central ev_registry ev_cp ev_driver ev_weather ev_front
+      - run: python -m unittest discover -s tests -v
+      - run: DB_PASSWORD=local-ci-placeholder docker compose config --quiet

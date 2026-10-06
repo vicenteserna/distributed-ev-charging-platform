@@ -1,0 +1,120 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - ev_network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - "127.0.0.1:9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://127.0.0.1:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms512m"
+    networks:
+      - ev_network
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      POSTGRES_DB: ev_charging_db
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ev_network
+
+  ev_registry:
+    build:
+      context: .
+      dockerfile: ev_registry/Dockerfile
+    ports:
+      - "127.0.0.1:5001:5001"
+    environment:
+      - DB_HOST=db
+      - DB_PASSWORD=${DB_PASSWORD:?Copy .env.example to .env and set DB_PASSWORD}
+    depends_on:
+      - db
+    networks:
+      - ev_network
+
+  ev_central:
+    build:
+      context: .
+      dockerfile: ev_central/Dockerfile
+    ports:
+      - "127.0.0.1:5002:5002"
+    environment:
+      - DB_HOST=db
+      - DB_PASSWORD=${DB_PASSWORD:?Copy .env.example to .env and set DB_PASSWORD}
+      - KAFKA_BROKER=kafka:29092
+    depends_on:
+      - db
+      - kafka
+    networks:
+      - ev_network
+
+  ev_weather:
+    build:
+      context: .
+      dockerfile: ev_weather/Dockerfile
+    environment:
+      - DB_HOST=db
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY:-}
+    networks:
+      - ev_network
+
+  ev_front:
+    build:
+      context: .
+      dockerfile: ev_front/Dockerfile
+    ports:
+      - "127.0.0.1:5000:5000"
+    depends_on:
+      - ev_central
+    networks:
+      - ev_network
+
+  ev_cp:
+    build:
+      context: .
+      dockerfile: ev_cp/Dockerfile
+    hostname: ev_cp
+    environment:
+      - DB_HOST=db
+      - KAFKA_BROKER=kafka:29092
+    depends_on:
+      - ev_registry
+      - ev_central
+      - kafka
+    networks:
+      - ev_network
+
+  ev_driver:
+    build:
+      context: .
+      dockerfile: ev_driver/Dockerfile
+    environment:
+      - DB_HOST=db
+    depends_on:
+      - ev_cp
+    networks:
+      - ev_network
+
+networks:
+  ev_network:
+    driver: bridge
