@@ -105,6 +105,7 @@ services:
       - ev_network
 
   ev_driver:
+    profiles: [manual]
     build:
       context: .
       dockerfile: ev_driver/Dockerfile
