@@ -2,7 +2,7 @@
 
 A Docker Compose simulation of a small electric-vehicle charging network. Python services register a charging point, coordinate charging requests, publish telemetry through Kafka, store state in PostgreSQL, process weather updates, and expose a local web dashboard.
 
-This began as a two-person University of Alicante distributed-systems project. Vicente Serna took primary responsibility for implementation; this repository preserves the collaborative authorship of the original work.
+This began as a University of Alicante distributed-systems project. The project was originally developed in October–November 2025, but it has recently been updated to address security vulnerabilities and released for professional use, ensuring it is easy for all users to understand.
 
 ## Architecture
 
