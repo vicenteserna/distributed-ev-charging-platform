@@ -41,7 +41,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-On Windows PowerShell, copy the example with `Copy-Item .env.example .env`. Open [http://localhost:5000](http://localhost:5000) after startup. The Compose file starts one charging point (`MADRID-01`) and a driver simulator automatically. Allow time for the database, Kafka, registration, and login to become ready; the charging point retries registration and login. Driver requests authorize a connection; starting and stopping a charge are separate dashboard actions.
+On Windows PowerShell, copy the example with `Copy-Item .env.example .env`. Open [http://localhost:5000](http://localhost:5000) after startup. The Compose file starts one charging point (`MADRID-01`) automatically. The driver starts only when you run a manual command. Allow time for the database, Kafka, registration, and login to become ready; the charging point retries registration and login. Driver requests authorize a connection; starting and stopping a charge are separate dashboard actions.
 
 For one manual driver request, use:
 
@@ -55,13 +55,7 @@ The dashboard, central API, registry, Kafka, and PostgreSQL are bound to `127.0.
 
 ## Manual multi-point workflow
 
-The original `sd_pract2` workflow started charging points and drivers in separate terminals. The public Compose file starts one default point and an automatic driver for a quick demonstration. You can still run additional points and drivers manually while the base services are up.
-
-For a controlled demonstration, stop the automatic driver first:
-
-```bash
-docker compose stop ev_driver
-```
+The original `sd_pract2` workflow started charging points and drivers in separate terminals. The public Compose file starts one default point for a quick demonstration. Run drivers manually when you want a charging request, and add more points while the base services are up.
 
 In a new terminal, start a second point. Keep this terminal open:
 
